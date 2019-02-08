@@ -7,23 +7,26 @@ COMPILE_OPT IDL2
 ;omega from level
 lvl_w=47
 
-filename1a = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_pchf_gs.001.nc' ; Convective Precipitation	kg m-2 s-1 
-filename1c = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_rCAPE_gs.001.nc' ;rCAPE in J/kg
-filename1d = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_rCAPElse_gs.001.nc' ;rCAPElse 
-filename1h = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_whf_gs.001.nc'
-filename1j = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_RH_gs.001.nc'
+filename1a = '/home/rtm/GCM/CanAM4_hires/ensamble/pchf/TWP_sa_jcl_hf_1997_pchf_gs.nc' ; Convective Precipitation  kg m-2 s-1 
+filename1h = '/home/rtm/GCM/CanAM4_hires/ensamble/whf/TWP_sa_jcl_hf_1997_whf_gs.nc'
+filename1c = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPE/TWP_sa_jcl_hf_1997_rCAPE_gs.nc'
+filename1d = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPElse/TWP_sa_jcl_hf_1997_rCAPElse_gs.nc'
+filename1j = '/home/rtm/GCM/CanAM4_hires/ensamble/RH/TWP_sa_jcl_hf_1997_RH_gs.nc'
+filename1f = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPE/TWP_sa_jcl_hf_1997_CIN_gs.nc'
 
 Id1a  = NCDF_OPEN(filename1a)
 Id1c  = NCDF_OPEN(filename1c)
 Id1d  = NCDF_OPEN(filename1d)
 Id1h  = NCDF_OPEN(filename1h)
 Id1j  = NCDF_OPEN(filename1j)
+Id1f  = NCDF_OPEN(filename1f)
 
 NCDF_VARGET, Id1a,   'PCHF',     pchf
 NCDF_VARGET, Id1c,   'CAPE',    PCAPE
-NCDF_VARGET, Id1d,   'CAPElse', PCAPElse
+NCDF_VARGET, Id1d,   'rCAPElse', PCAPElse
 NCDF_VARGET, Id1h,   'WHF',      whf
 NCDF_VARGET, Id1j,   'RH',       RH
+NCDF_VARGET, Id1f,   'CIN',      CIN
 
 pchf = pchf*3600. ; convert to kg/m2/h
 whf = whf*3600.   ; convert to Pa/h
@@ -34,6 +37,9 @@ PCAPElse = (PCAPElse-PCAPE)*4. ; 4* to change units to J/kg/h
 ; Rain Event Definition
 ; see: new_event_definition_TWP_STRONG_FORCING_spCAM2000.pro
 ;=====================================================================================
+nlev0=49
+nlon0=9
+nlat0=4
 
 arr_prc=FLTARR(10000,72)
 arr_prc[*,*]='NaN'
@@ -86,7 +92,7 @@ FOR NLON=0,nlon0-1 DO BEGIN
     FOR TIME3=START-12,FINISH DO BEGIN ; from -3 hours to the end of an event time
      arr_prc [count, TIME3-START+12] = pchf[NLON,NLAT,TIME3]
      arr_CAPE[count, TIME3-START+12] = PCAPE[NLON,NLAT,TIME3]
-     arr_CIN [count, TIME3-START+12] = PCIN[NLON,NLAT,TIME3]
+     arr_CIN [count, TIME3-START+12] = CIN[NLON,NLAT,TIME3]
      arr_CAPElse[count, TIME3-START+12] = PCAPElse[NLON,NLAT,TIME3] ; the forcing at t=0 is for t=0 to t=1 ?
      arr_whf [count, TIME3-START+12] =  whf[NLON,NLAT,lvl_w,TIME3]
      arr_dCAPE[count, TIME3-START+12] = (PCAPE[NLON,NLAT,TIME3] - PCAPE[NLON,NLAT,TIME3-1])*4.
@@ -99,7 +105,9 @@ FOR NLON=0,nlon0-1 DO BEGIN
   ENDFOR
  ENDFOR
 ENDFOR
-print, count
+
+print, count, 'number of events'
+stop
 ;================================================================
 ;this part is for -3hours to 1-time step prior to initiation time
 
@@ -276,11 +284,6 @@ ENDFOR
 ;85=LIGHT RED
 ;95=DARK RED
 
-Device, Decomposed=0
-LOADCT, 33, NColors=100, Bottom=3
-
-!P.MULTI = [0, 4, 1, 0, 0]
-
 a1=0.20 ;   x1 left column
 a2=0.84 ;   x2 left column
 
@@ -300,9 +303,10 @@ x1=[0,0]
 z1=[0,3]
 z2=[-1000,5000]
 
-IF (REG EQ 1) THEN BEGIN
-rpsopen, 'GCM18_hires_rtm_1_TWP_all_forcing_1mm_time_rCAPE.eps', /encap, xs=10, ys=30, /inches, /color
-ENDIF
+rpsopen, 'Figure3_right_ensemble.eps', /encap, xs=10, ys=30, /inches, /color
+Device, Decomposed=0
+LoadCT, 33, NColors=(100), Bottom=3
+!P.MULTI = [0, 4, 1, 0, 0]
 
 D=2.2
 
@@ -320,7 +324,7 @@ AXIS, YAXIS=1, YRANGE = [-150.,0.],YTICKINTERVAL=50,COLOR=20, YMINOR=1, YSTYLE =
 OPLOT, time, mean_arr_whf*(1.5/150.)+1.5, color=20, thick=8.
 
 plot, time , mean_arr_CAPE, THICK=8., XTHICK=8.0, YTHICK=8.0, position=[a1, c1, a2, c2], $
-    XRANGE = [-10,nmbr], YRANGE = [300,500], XTICKINTERVAL=nmbr/4., XMINOR=2, YTICKINTERVAL=100, YMINOR=1, $
+    XRANGE = [-10,nmbr], YRANGE = [200,500], XTICKINTERVAL=nmbr/4., XMINOR=2, YTICKINTERVAL=100, YMINOR=1, $
 ;    xtitle='time',$
     ytitle='CAPE (Jkg!E-1!N)',$
 ;    subtitle='',title='Strong Forcing', $
@@ -329,7 +333,7 @@ oplot, x1, z2
 
 AXIS, YAXIS=1, YRANGE = [-15.,0.],YTICKINTERVAL=5,COLOR=20, YMINOR=1, YSTYLE = 1, $
    YTITLE = 'CIN (Jkg!E-1!N)', charsize=12.5/D,charthick=20.5/D
-OPLOT, time, mean_arr_CIN*(200./15.)+500., color=20, thick=8.
+OPLOT, time, mean_arr_CIN*(300./15.)+500., color=20, thick=8.
 ;oplot, time, mean_arr_dCAPE, COLOR=90, thick=8.
 
 ;oplot, time, (mean_arr_CAPElse), COLOR=20 

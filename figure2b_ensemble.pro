@@ -3,11 +3,10 @@
 PRO tendency, filename1, filename2, ctl_tnt 
 COMPILE_OPT IDL2
 ;====================================================================================
-filename1a = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_m06_pchf_gs.nc.001.nc' ; Convective Precipitation  kg m-2 s-1 
-filename1c = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_m06rCAPE_buoyancy+0K_and_rho_from_Tv_gs.nc.001.nc' ;PCAPE in J/m3
-filename1d = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_m06rCAPElse_buoyancy+0K_and_rho_from_Tv_gs.nc.001.nc' ;PCAPEls in J/m3
-filename1h = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_m06_whf_gs.nc.001.nc'
-
+filename1a = '/home/rtm/GCM/CanAM4_hires/ensamble/pchf/TWP_sa_jcl_hf_1997_pchf_gs.nc' ; Convective Precipitation  kg m-2 s-1 
+filename1h = '/home/rtm/GCM/CanAM4_hires/ensamble/whf/TWP_sa_jcl_hf_1997_whf_gs.nc'
+filename1c = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPE/TWP_sa_jcl_hf_1997_rCAPE_gs.nc'
+filename1d = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPElse/TWP_sa_jcl_hf_1997_rCAPElse_gs.nc'
 
 Id1a  = NCDF_OPEN(filename1a)
 Id1c  = NCDF_OPEN(filename1c)
@@ -15,41 +14,51 @@ Id1d  = NCDF_OPEN(filename1d)
 Id1h  = NCDF_OPEN(filename1h)
 
 NCDF_VARGET, Id1a,   'PCHF',    pchf
-NCDF_VARGET, Id1c,   'CAPE',    PCAPE
-NCDF_VARGET, Id1d,   'CAPElse', PCAPElse
+NCDF_VARGET, Id1c,   'CAPE',   PCAPE
+NCDF_VARGET, Id1d,   'rCAPElse', PCAPElse
 NCDF_VARGET, Id1h,   'WHF',     whf
 
 pchf = pchf*3600. ; convert to kg/m2/h
 whf = whf*3600.   ; convert to Pa/h
 
 PCAPElse = (PCAPElse-PCAPE)*4. ; convert to  J/kg/h
-PCAPElsp = (PCAPElsp-PCAPE)*4.
+;PCAPElsp = (PCAPElsp-PCAPE)*4.
 
-pchf0     = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
-PCAPE0    = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
-PCAPElse0 = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
-OMEGA0    = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
+nlon = 9 ;
+nlat = 4 ;
+ntime = 44160 ;
+
+pchf0     = FLTARR(nlon*nlat*ntime)
+PCAPE0    = FLTARR(nlon*nlat*ntime)
+PCAPElse0 = FLTARR(nlon*nlat*ntime)
+OMEGA0    = FLTARR(nlon*nlat*ntime)
 
 counter0=FLTARR(1)
 
-FOR l0=0,nlon0-1 DO BEGIN
- FOR l1=0,nlat0-1 DO BEGIN
-  FOR l2=1,(ntim6+ntim7+ntim8)-2 DO BEGIN
+FOR l0=0,nlon-1 DO BEGIN
+ FOR l1=0,nlat-1 DO BEGIN
+  FOR l2=1,ntime-2 DO BEGIN
    pchf0 [counter0] = pchf[l0,l1,l2]
    PCAPE0[counter0] = PCAPE[l0,l1,l2]
    PCAPElse0[counter0] = PCAPElse[l0,l1,l2]
-   OMEGA0   [counter0] = whf[l0,l1,46,l2]
+   OMEGA0   [counter0] = whf[l0,l1,47,l2]
    counter0=counter0+1
   ENDFOR
  ENDFOR
 ENDFOR
 
+INDEX = WHERE((pchf0[*] gt .01) and (pchf[*] lt 100.) and (PCAPElse0[*] gt -5000.) and (PCAPElse0[*] lt 5000.))
+print, n_elements(INDEX)
+print, correlate(pchf0[INDEX], PCAPElse0[INDEX])
+INDEX = WHERE((pchf0[*] gt .01) and (pchf[*] lt 100.) and (PCAPE0[*] gt -5000.) and (PCAPE0[*] lt 5000.))
+print, correlate(pchf0[INDEX], PCAPE0[INDEX])
+
 ;===================================================================================
 ;Define min and max on X, Y axis
 X_MAX =   500.
 X_MIN =  -100.
-Y_MAX =  500.
-Y_MIN = -500.
+Y_MAX =  600.
+Y_MIN = -600.
 
 VAR_X = PCAPElse0
 VAR_Y = OMEGA0 
@@ -73,7 +82,7 @@ MIN_RAIN=0.1
 FOR XX=0,N_BINS-1 DO BEGIN
 	FOR YY=0,N_BINS-1 DO BEGIN
 		INDEX = WHERE((VAR_Y[*] GT (Y_MIN+(STEP_Y*YY))) AND (VAR_Y[*] LE (Y_MIN+(STEP_Y*(YY+1)))) AND (VAR_X[*] GT (X_MIN+(STEP_X*XX))) AND (VAR_X[*] LE (X_MIN+(STEP_X*(XX+1)))) AND (pchf0[*] GT MIN_RAIN))		
-                IF (N_ELEMENTS(INDEX) GT 20.) THEN BEGIN
+                IF (N_ELEMENTS(INDEX) GT 50.) THEN BEGIN ; use GT 20 for 1 ensemble and GT 50 for 5 enembles
                         RAIN [YY,XX] = MEAN(pchf0[INDEX])
                 ENDIF		
 		;RAIN [YY,XX] = MEAN(array_pcp[WHERE((array_cape[*] GT (Y_MIN+(STEP_Y*YY))) AND (array_cape[*] LE (Y_MIN+(STEP_Y*(YY+1)))) AND (array_dcapelsp[*] GT (X_MIN+(STEP_X*XX))) AND (array_dcapelsp[*] LE (X_MIN+(STEP_X*(XX+1)))) AND (array_dcapelse[*] GT LSE_MIN) AND (array_dcapelse[*] LT LSE_MAX) AND (array_cape[*] GT 0.) AND (array_pcp[*] GT MIN_RAIN) AND (array_pcp[*] LT MAX_RAIN) AND (array_dcapelse[*] NE 0.))])
@@ -90,7 +99,7 @@ FOR YY=0,N_BINS-1 DO BEGIN
 ENDFOR
 
 ;===================================================================================
-rpsopen, '2D_pdf_rCAPElse_omega_lvl46_TWP.eps', /encap, xs=14, ys=10, /inches, /color
+rpsopen, 'figure2b_ensemble.eps', /encap, xs=14, ys=10, /inches, /color
 
 Device, Decomposed=0
 !P.MULTI = [0, 1, 1, 0, 0]

@@ -9,15 +9,19 @@ COMPILE_OPT IDL2
 
 nlon0=9
 nlat0=6
-filename1a = '/home/rtm/spCAM5/CAPE/rCAPE.nc'
-filename1c = '/home/rtm/spCAM5/PCP/conv_pcp.nc'
+filename1a = '/home/rtm/spCAM5/CAPE/reversible_CAPE_h2_1997_buoyancy+0K_and_rho_from_Tv.nc'
+filename1c = '/home/rtm/spCAM5/PCP/convective_rain_in_updrafts_and_downdrafts_TWP_Q_GT1E-4_h2_DEF3_1997.nc'
 
 Id1a  = NCDF_OPEN(filename1a)
 Id1c  = NCDF_OPEN(filename1c)
 NCDF_VARGET, Id1a,   'CAPE_dcapelse',    PCAPElse
-NCDF_VARGET, Id1c,   'CONV_RAIN',        pchf ; convective pcp
+NCDF_VARGET, Id1c,   'TOTAL_RAIN',       thf ; total pcp
+NCDF_VARGET, Id1c,   'CONV_RAIN',        pchf
 
-filename4 = '/home/rtm/spCAM5/GCM_OMEGA/OMEGA.nc'
+print, mean(pchf)/mean(thf)*100.
+print, mean(thf)*24.
+
+filename4 = '/home/rtm/spCAM5/GCM_OMEGA/GCM_OMEGA_TWP_start_from_top.nc'
 Id4 = NCDF_OPEN(filename4)
 NCDF_VARGET, Id4,   'GCM_OMEGA',   OMEGA
 
@@ -41,35 +45,47 @@ ENDFOR
 ;=====================================================================================
 ;GCM18
 
-filename10a = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_pchf_gs.001.nc' ; Convective Precipitation  kg m-2 s-1 
-filename10h = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_whf_gs.001.nc'
-filename10c = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_rCAPE_gs.001.nc'
-filename10d = '/home/rtm/GCM/CanAM4_hires/TWP_sa_rtm_hf2_1997_rCAPElse_gs.001.nc'
+filename10a = '/home/rtm/GCM/CanAM4_hires/ensamble/pchf/TWP_sa_jcl_hf_1997_pchf_gs.nc' ; Convective Precipitation  kg m-2 s-1 
+;filename10b = '/home/rtm/convection_paper/data/CanAM/TWP_sa_rtm_hf2_1997_plhf_gs.001.nc'
+filename10h = '/home/rtm/GCM/CanAM4_hires/ensamble/whf/TWP_sa_jcl_hf_1997_whf_gs.nc'
+filename10c = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPE/TWP_sa_jcl_hf_1997_rCAPE_gs.nc'
+filename10d = '/home/rtm/GCM/CanAM4_hires/ensamble/rCAPElse/TWP_sa_jcl_hf_1997_rCAPElse_gs.nc'
 
 Id10a  = NCDF_OPEN(filename10a)
+;Id10b  = NCDF_OPEN(filename10b)
 Id10c  = NCDF_OPEN(filename10c)
 Id10d  = NCDF_OPEN(filename10d)
 Id10h  = NCDF_OPEN(filename10h)
 
-NCDF_VARGET, Id10a,   'PCHF',     pchf18
-NCDF_VARGET, Id10c,   'rCAPE',    PCAPE18
+NCDF_VARGET, Id10a,   'PCHF',     pchf18a
+;NCDF_VARGET, Id10b,   'PLHF',     plhf18
+NCDF_VARGET, Id10c,   'CAPE',    PCAPE18
 NCDF_VARGET, Id10d,   'rCAPElse', PCAPElse18a
 NCDF_VARGET, Id10h,   'WHF',      whf18a
 
-pchf18 = pchf18*3600. ; change units to kg/m2/h
-whf18 [*,*,NN]= whf18a[*,*,47,*]*3600. ; change units to Pa/h ; level=47 is 1 level above the surface
+;print, mean(pchf18a)/mean(pchf18a+plhf18)*100.
+;print, mean(pchf18a+plhf18)*86400.
+
+whf18 = FLTARR(9, 4, 44160)
+whf18[*,*,*]= 'NAN'
+nlon0=9
+nlat0=4
+
+pchf18 = (pchf18a)*3600. ; change units to kg/m2/h
+whf18 [*,*,*]= whf18a[*,*,47,*]*3600. ; change units to Pa/h ; level=47 is 1 level above the surface
 
 ; in CanAM4 cape generation rate is computed as the difference between PCAPElse and PCAPE
 PCAPElse18 = (PCAPElse18a-PCAPE18)*4. ; convert to  J/kg/h, where 4 stands for 4 15-minute time intervals
 
-pchf018     = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
-PCAPElse018 = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
-whf018        = FLTARR(nlon0*nlat0*(ntim6+ntim7+ntim8))
+ntim = 44160
+pchf018     = FLTARR(nlon0*nlat0*(ntim))
+PCAPElse018 = FLTARR(nlon0*nlat0*(ntim))
+whf018        = FLTARR(nlon0*nlat0*(ntim))
 counter018  = 0.
 
 FOR l0=0,nlon0-1 DO BEGIN
  FOR l1=0,nlat0-1 DO BEGIN
-  FOR l2=0,(ntim6+ntim7+ntim8)-1 DO BEGIN
+  FOR l2=0,(ntim)-1 DO BEGIN
    pchf018     [counter018] = pchf18[l0,l1,l2]
    PCAPElse018 [counter018] = PCAPElse18[l0,l1,l2]
    whf018      [counter018] = whf18[l0,l1,l2]
@@ -89,23 +105,28 @@ bins = CEIL(xmax/bin0)
 ;define arrays
 hist_arr_spcam_conv = FLTARR(bins)
 hist_arr_spcam_lse = FLTARR(bins)
-
 hist_arr_gcm18_conv = FLTARR(bins)
 hist_arr_gcm18_lse = FLTARR(bins)
 
+hist_arr_spcam_mc  = FLTARR(bins)
+hist_arr_gcm18_mc  = FLTARR(bins)
+
+
   FOR bn0=0,bins-1 DO BEGIN
-    INDEX1 = WHERE((pchf0[*] GT (bn0*bin0 + xmin)) AND (pchf0[*] LE ((bn0+1)*bin0 + xmin)), elem1)
+    INDEX1 = WHERE((pchf0[*] GT (bn0*bin0 + xmin+0.01)) AND (pchf0[*] LE ((bn0+1)*bin0 + xmin+0.01)), elem1)
     hist_arr_spcam_conv[bn0] = 100.*elem1/counter0 ; in percent from the total
     hist_arr_spcam_lse [bn0] = mean(PCAPElse0[INDEX1], /NAN)
+    hist_arr_spcam_mc  [bn0] = mean(MC[INDEX1], /NaN)
   ENDFOR
 
   FOR bn0=0,bins-1 DO BEGIN
     INDEX1 = WHERE((pchf018[*] GT (bn0*bin0 + xmin)) AND (pchf018[*] LE ((bn0+1)*bin0 + xmin)), elem1)
     hist_arr_gcm18_conv[bn0] = 100.*elem1/counter018 ; in percent from the total
     hist_arr_gcm18_lse [bn0] = mean(PCAPElse018[INDEX1])
+    hist_arr_gcm18_mc  [bn0] = mean(whf018[INDEX1])
   ENDFOR
 
-
+print, total(hist_arr_spcam_conv), total(hist_arr_gcm18_conv)
 X1 = xmin + bin0 * FINDGEN(bins)
 
 ;===================================================================================
@@ -113,7 +134,7 @@ filename5a = '/home/rtm/spCAM5/event_lenght_1mm_1hr.nc'
 Id5a  = NCDF_OPEN(filename5a)
 NCDF_VARGET, Id5a,   'EL',   EL_spcam
 
-filename5b = '/home/rtm/GCM/CanAM4_hires/event_lenght_GCM18_1mm_1hr.nc'
+filename5b = '/home/rtm/GCM/CanAM4_hires/event_lenght_GCM18_ensamble_1mm_1hr.nc'
 Id5b  = NCDF_OPEN(filename5b)
 NCDF_VARGET, Id5b,   'EL',   EL_gcm18
 
@@ -150,14 +171,14 @@ FOR III=0,20 DO BEGIN
   tot_CanAM = tot_CanAM + hist_arr_gcm18[III]
   PRINT, III, tot_spCAM, tot_CanAM
 ENDFOR
-
+print, 'figure 1(c)', hist_arr_gcm18
 ;=====================================================================================
 ; Rain Event Definition
 ; see: new_event_definition_TWP_STRONG_FORCING_spCAM2000.pro
 ;=====================================================================================
-EVENT_LENGHT = FLTARR(10000)
+EVENT_LENGHT = FLTARR(50000)
 EVENT_LENGHT[*] = 'NaN'
-EVENT_PCP = FLTARR(10000)
+EVENT_PCP = FLTARR(50000)
 EVENT_PCP[*] = 'NaN'
 
 count=0L
@@ -293,7 +314,7 @@ ENDFOR
 ;===================================================================================
 
 
-rpsopen, 'figure1.eps', /encap, xs=14, ys=12, /inches, /color
+rpsopen, 'figure1_ensemble.eps', /encap, xs=14, ys=12, /inches, /color
 
 Device, Decomposed=0
 LoadCT, 33, NColors=(100), Bottom=3
@@ -323,14 +344,14 @@ b4=0.44
 print, hist_arr_spcam_lse
 
 plot, X1, hist_arr_spcam_lse, XTHICK=8.0/D, YTHICK=8.0/D,position=[a1, b1, a2, b2], $
-    XRANGE = [0,3], YRANGE = [-100.,400.], XTICKINTERVAL=1, XMINOR=2, YTICKINTERVAL=100, YMINOR=1, $
+    XRANGE = [0,3], YRANGE = [-200.,400.], XTICKINTERVAL=1, XMINOR=2, YTICKINTERVAL=100, YMINOR=1, $
     TITLE='(a)', $
     xtitle='Conv. PCP (mmh!E-1!N)',$
     ytitle='dCAPE!DLSFT!N (Jkg!E-1!Nh!E-1!N)', $
     charsize=10.5/D,charthick=20.5/D,thick=8.
 OPLOT, X1, hist_arr_gcm18_lse, color=20, thick=8. 
 
-AXIS, YAXIS=1, YRANGE = [-25, 100.],  YTICKINTERVAL=25, YMINOR=1, YSTYLE = 1, $
+AXIS, YAXIS=1, YRANGE = [-50, 100.],  YTICKINTERVAL=25, YMINOR=1, YSTYLE = 1, $
    YTITLE = '-!4x!X (Pah!E-1!N)', $
 charsize=10.5/D,charthick=20.5/D
 OPLOT, X1, (-1.)*(hist_arr_spcam_mc*4.), linestyle=5, thick=8.
@@ -339,13 +360,14 @@ OPLOT, X1, (-1.)*(hist_arr_gcm18_mc*4.), linestyle=5, thick=8., color=20
 ;panel (b)
 
 plot, X1, hist_arr_spcam_conv, XTHICK=8.0/D, YTHICK=8.0/D,position=[a3, b1, a4, b2], $
-    XRANGE = [0,3], YRANGE = [0.1,10.], /YLOG, XTICKINTERVAL=1, XMINOR=2, YTICKINTERVAL=4, YMINOR=1, $
+    XRANGE = [0,3], YRANGE = [0.1,100.], /YLOG, XTICKINTERVAL=1, XMINOR=2, YTICKINTERVAL=4, YMINOR=1, $
     TITLE='(b)',$
     xtitle='Conv. PCP (mmh!E-1!N)',$
     ytitle='Frequency Density (%)', $
-    charsize=10.5/D,charthick=20.5/D,thick=8.
-oplot, X1, hist_arr_gcm18_conv, color=20, thick=8.
-
+    charsize=10.5/D,charthick=20.5/D,thick=5.
+oplot, X1, hist_arr_gcm18_conv, color=20, thick=5.
+print, hist_arr_spcam_conv[0:10]
+print, hist_arr_gcm18_conv[0:10]
 
 ;================================================================
 ;panel (c)
