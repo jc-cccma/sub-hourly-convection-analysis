@@ -12,7 +12,7 @@ nlat0=6
 filename1c = '/home/rtm/spCAM5/PCP/convective_rain_in_updrafts_and_downdrafts_TWP_Q_GT1E-4_h2_DEF3_1997.nc'
 
 Id1c  = NCDF_OPEN(filename1c)
-NCDF_VARGET, Id1c,   'TOTAL_RAIN',        pchf
+NCDF_VARGET, Id1c,   'CONV_RAIN',        pchf
 
 pchf0     = FLTARR(7*4*12240)
 pchf0_3h  = FLTARR(7*4*12240/12)
@@ -37,16 +37,15 @@ ENDFOR
 ;GCM18
 
 filename10a = '/home/rtm/GCM/CanAM4_hires/ensamble/pchf/TWP_sa_jcl_hf_1997_pchf_gs.nc' ; Convective Precipitation  kg m-2 s-1 
-filename10b = '/home/rtm/GCM/CanAM4_hires/ensamble/plhf/TWP_sa_jcl_hf_1997_plhf_gs.nc'
+
 Id10a  = NCDF_OPEN(filename10a)
-Id10b  = NCDF_OPEN(filename10b)
 
 NCDF_VARGET, Id10a,   'PCHF',     pchf18a
-NCDF_VARGET, Id10b,   'PLHF',     plhf18a
+
 nlon0=9
 nlat0=4
 
-pchf18 = (pchf18a+plhf18a)*3600. ; change units to kg/m2/h
+pchf18 = (pchf18a)*3600. ; change units to kg/m2/h
 
 ntim = 44160
 pchf018     = FLTARR(nlon0*nlat0*(ntim))
@@ -74,16 +73,12 @@ ENDFOR
 ;CAM5 
 
 filename20a = '/home/rtm/convection_paper/data/CAM5/PRECC_CAM5.nc' ; Convective Precipitation  m s-1 
-filename20b = '/home/rtm/convection_paper/data/CAM5/PRECL_CAM5.nc'
 Id20a  = NCDF_OPEN(filename20a)
-Id20b  = NCDF_OPEN(filename20b)
 NCDF_VARGET, Id20a,   'PRECC',     PRECC
 NCDF_VARGET, Id20a,   'lon',       lon
 NCDF_VARGET, Id20a,   'lat',       lat
-NCDF_VARGET, Id20b,   'PRECL',     PRECL
 
 PRECC = PRECC*3600*1000. ; change units to mm/h
-PRECL = PRECL*3600*1000.
 
 nlon0=9
 nlat0=6
@@ -97,7 +92,7 @@ counter_cam  = 0.
 FOR l0=60,68 DO BEGIN
  FOR l1=48,53 DO BEGIN
   FOR l2=0,(ntim)-1 DO BEGIN
-   cam5 [counter_cam] = PRECC[l0,l1,l2]+PRECL[l0,l1,l2]
+   cam5 [counter_cam] = PRECC[l0,l1,l2]
    counter_cam = counter_cam+1.
   ENDFOR
  ENDFOR
@@ -106,20 +101,20 @@ ENDFOR
 ;===================================================================================
 ;TRMM 3B42 3-hours
 
-filename30a = '/home/rtm/TRMM/TRMM_2.5deg_2005-2009.nc' ; Convective Precipitation  m s-1 
+filename30a = '/home/rtm/TRMM/TRMM_2deg.nc' ; Convective Precipitation  m s-1 
 Id30a  = NCDF_OPEN(filename30a)
 NCDF_VARGET, Id30a,   'PREC2',     PREC_TRMM
 
-nlon_trmm = 8
-nlat_trmm = 4
+nlon_trmm = 10
+nlat_trmm = 5
 ntim_trmm = 3680
-trmm = FLTARR(8*4*3680)
+trmm = FLTARR(10*5*3680)
 trmm[*] = 'NAN'
 
 counter_trmm = 0.
 
-FOR l0=0,7 DO BEGIN
- FOR l1=0,3 DO BEGIN
+FOR l0=0,9 DO BEGIN
+ FOR l1=0,4 DO BEGIN
   FOR l2=0,(ntim_trmm)-1 DO BEGIN
    trmm [counter_trmm] = PREC_TRMM[l0,l1,l2]
    counter_trmm = counter_trmm+1.
@@ -167,7 +162,7 @@ X1 = xmin + bin0 * FINDGEN(bins)
 
 ;===================================================================================
 
-rpsopen, 'figure1b_ensemble_3hourly_total_2.5deg_trmm_1998-2002.eps', /encap, xs=8, ys=8, /inches, /color
+rpsopen, 'figure1b_ensemble_3hourly.eps', /encap, xs=8, ys=8, /inches, /color
 
 Device, Decomposed=0
 LoadCT, 33, NColors=(100), Bottom=3
@@ -187,12 +182,12 @@ b2=0.85 ;
 plot, X1, hist_arr_spcam_conv, XTHICK=8.0/D, YTHICK=8.0/D,position=[a1, b1, a2, b2], $
     XRANGE = [0,3], YRANGE = [0.1,100.], /YLOG, XTICKINTERVAL=1, XMINOR=2, YTICKINTERVAL=4, YMINOR=1, $
     TITLE='(b)',$
-    xtitle='Total PCP (mmh!E-1!N)',$
+    xtitle='Conv. PCP (mmh!E-1!N)',$
     ytitle='Frequency Density (%)', $
     charsize=10.5/D,charthick=20.5/D,thick=6.
 oplot, X1, hist_arr_gcm18_conv, color=20, thick=6.
 oplot, X1, hist_arr_cam5_conv, color=55, thick=6.
-oplot, X1, hist_arr_trmm_conv, color=80, thick=6.
+;oplot, X1, hist_arr_trmm_conv, color=80, thick=6.
 
 rpsclose
 
